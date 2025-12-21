@@ -1,0 +1,5 @@
+{
+  "name": "SuperScribe Emulation",
+  "description": "A medical scribe interface emulating the dual-pane layout of an AI chat assistant alongside a live patient document.",
+  "requestFramePermissions": []
+}
