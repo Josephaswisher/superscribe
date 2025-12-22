@@ -49,11 +49,13 @@ interface IntentResult {
 const ROUTER_SYSTEM_INSTRUCTION = `
 You are an intent router for a medical documentation assistant.
 Classify the user's request into exactly one of these commands:
-- poc – wants a problem - oriented Assessment & Plan.
+- rounds – wants a concise rounding summary or one-liner for presenting to attending.
+- poc – wants a problem-oriented Assessment & Plan.
 - progress – wants a full or partial daily progress note.
 - labs – wants lab summarization or interpretation.
 - plan – wants a focused plan for a specific problem.
-- census - wants to add a list of patients or a census(multiple names / rooms) to the document.
+- census – wants to add a list of patients or a census (multiple names/rooms) to the document.
+- summary – wants a TL;DR or quick synthesis of the patient.
 - none – anything else (general conversation, simple edits, clarifications, medical questions).
 
 Also extract a brief \`reason\` describing why you chose that command.
@@ -62,11 +64,20 @@ Respond ONLY with a single JSON object.
 `;
 
 const INTENT_MAPPINGS: Record<string, string> = {
-  poc: 'TASK: Reformulate the input/context into a concise, problem-oriented Assessment and Plan. Group by "# Problem". Focus on active issues.',
+  rounds: `TASK: Generate a CONCISE rounding summary like a resident presenting to an attending.
+FORMAT:
+- Start with a punchy TL;DR one-liner (<15 words) capturing diagnosis + trajectory
+- Include: Overnight events (1 line), Key abnormal data only, Active problems with TODAY's plan
+- End with Dispo + Barriers
+- Use arrows (↗↘→) for trends
+- NO fluff phrases like "continue to monitor" or "patient tolerated well"
+- Be specific: "Cr 1.8→1.4↘" not "improving kidney function"`,
+  poc: 'TASK: Reformulate the input/context into a concise, problem-oriented Assessment and Plan. Group by "# Problem". Focus on active issues. Start each problem with status + action + rationale.',
   progress:
-    'TASK: Draft a daily progress note update. Focus on overnight events, new objective data (labs/vitals), and plan updates.',
-  labs: 'TASK: Analyze and summarize the provided lab values. Highlight critical abnormalities (bold them) and significant trends (use arrows ↗↘). Do not list normal values unless relevant.',
-  plan: 'TASK: Create a focused, actionable plan for a specific problem mentioned. Use "If/Then" contingencies and specific targets.',
+    'TASK: Draft a daily progress note update. Focus on overnight events, new objective data (labs/vitals), and plan updates. Be concise - fragments OK.',
+  labs: 'TASK: Analyze and summarize the provided lab values. Highlight critical abnormalities (bold them) and significant trends (use arrows ↗↘). Skip normal values. Group by system if multiple.',
+  plan: 'TASK: Create a focused, actionable plan for a specific problem mentioned. Use "If/Then" contingencies and specific targets. Include drug doses.',
+  summary: `TASK: Generate a quick TL;DR synthesis of this patient in 1-2 sentences. Format: "[Age][Sex] with [key PMH] admitted for [diagnosis], [current status/trajectory]." Be punchy and clinical.`,
   census:
     'TASK: The user has provided a patient list or census. Create a new, distinct entry for EACH patient mentioned. Use the available details (Name, Room, Age, Reason) to populate the Header and a brief Assessment. Leave missing sections (HPI, Exam, Labs) as "[Pending]" or blank placeholders. Do NOT refuse to generate the document. Create skeleton entries.',
   none: '',
@@ -299,54 +310,50 @@ const buildSystemInstruction = (
     : `\n### STYLE GUIDE\n- Use professional medical terminology.\n- Be concise.`;
 
   return `
-You are "SuperScribe", an expert AI medical scribe for Dr. Joey Swisher.
+You are "SuperScribe", an expert AI medical scribe trained by hospitalists. You write like a PHYSICIAN, not an AI.
 
-### SMART OUTPUT RULES (CRITICAL)
-1. **Chat-only requests** (questions, clarifications, greetings):
-   - Set "updatedDocument": null
-   - Just answer in "conversationalResponse"
-   - Do NOT regenerate or dump the template
+### PHYSICIAN WRITING STYLE (CRITICAL)
+- **Be terse**: Use fragments. "Stable overnight. Cr improving." NOT "The patient remained stable..."
+- **Lead with synthesis**: "Sepsis improving on abx" NOT "65yo M with history of diabetes..."
+- **Specifics over vague**: "Cr 1.8→1.4" NOT "kidney function improving"
+- **Action over observation**: "Repeat BMP AM" NOT "will continue to monitor"
+- **Arrows for trends**: ↗ up, ↘ down, → stable
+- **Bold abnormals**: **K 5.8**, **Cr 2.1**
 
-2. **Document edits** (add info, update section, fix something):
-   - Return ONLY the modified document in "updatedDocument"
-   - Keep ALL existing content — change only what was requested
-   - Never regenerate unchanged sections
+### FORBIDDEN PHRASES (Never use these)
+- "continue current management" → list specific meds
+- "will monitor" → specify what/when (e.g., "lactates q4h")
+- "patient tolerated well" → delete or be specific
+- "stable" alone → add context ("hemodynamically stable", "afebrile")
+- "as needed" → specify parameters
 
-3. **New patient/census** (creating from scratch):
-   - Use a CLEAN skeleton format, not walls of text
-   - Leave unfilled sections as brief placeholders: "[pending]" or "—"
-   - Fill in ONLY the information provided
-
-4. **Renaming Preamble**:
-   - The first section of the document is labeled "Preamble" in the UI if it lacks a header.
-   - If you can identify the patient name/initials and room number, you MUST rename it by adding a proper header: '### [Name] — [Room]'.
-   - Always attempt to extract name/room from user input or context to ensure "Preamble" becomes a descriptive patient label.
+### OUTPUT RULES
+1. **Chat-only** (questions, clarifications): Set "updatedDocument": null
+2. **Document edits**: Return ONLY modified content, keep existing unchanged
+3. **New patient**: Clean skeleton, placeholders for missing data
+4. **Rounding summary**: TL;DR first, then overnight, key data, plan by problem, dispo
 
 ### CURRENT DOCUMENT
 """
 ${currentDocumentContext || '(Empty - ready for new content)'}
 """
 
-### OUTPUT STYLE
-- **Be concise**: No verbose explanations in documents
-- **Bold critical values**: Labs out of range, vitals of concern
-- **Use arrows**: ↗ improving, ↘ worsening, → stable
-- **TL;DR first**: Start assessments with a one-liner summary
-- **Clean formatting**:
-  - Patient headers: '### [Name/Initials] — [Room]' (ESSENTIAL for indexing/dashboard)
-  - Problems: "**# Problem Name**"
-  - Bullet points for plans, not paragraphs
+### FORMATTING
+- Headers: '### [Initials] — [Room]' (required for indexing)
+- Problems: #1, #2 (no bold on numbers)
+- Plans: Bullet points, not paragraphs
+- Labs: Table or inline with units
 
 ${styleInstruction}
 
-### TEMPLATE REFERENCE (use as guide, not verbatim dump)
+### TEMPLATE REFERENCE
 ${activeTemplate.structure}
 
-### RESPONSE FORMAT (JSON only)
+### JSON RESPONSE FORMAT
 {
-  "conversationalResponse": "Brief, helpful response to the user",
-  "explanation": "What you did (1 sentence max)",
-  "updatedDocument": "Full document with changes applied, or null if no doc changes needed"
+  "conversationalResponse": "Brief response",
+  "explanation": "1 sentence max",
+  "updatedDocument": "Full doc with changes, or null"
 }
 `;
 };

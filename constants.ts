@@ -11,7 +11,6 @@ VS: BP: 142/88 HR: 92 RR: 18 SpO2: 96% T: 37.2°C
 # Hypertension: Started lisinopril 10mg PO daily.
 `;
 
-
 export const DEFAULT_TEMPLATES: DocumentTemplate[] = [
   // --- CORE NOTES ---
   {
@@ -48,7 +47,7 @@ Medical Decision Making:
     - NO "Continue management" -> Use specific meds.
     - NO "Plan to reassess" -> Use "Repeat BMP in AM".
   - **Complexity**: Default to High Complexity (99223) unless clearly simple.
-  - **Structure**: Status + Action + Rationale is MANDATORY for every problem.`
+  - **Structure**: Status + Action + Rationale is MANDATORY for every problem.`,
   },
   {
     id: 'progress-note',
@@ -87,7 +86,7 @@ Disposition:
   - **Forbidden Phrases**:
     - NO "Continue current management" -> List specific meds/interventions.
     - NO "Will monitor" -> Use specific parameters.
-  - **Plan Components**: Status + Action + Rationale required.`
+  - **Plan Components**: Status + Action + Rationale required.`,
   },
   {
     id: 'discharge-summary',
@@ -120,7 +119,7 @@ Follow-up:
     - NO "Follow up with PCP" -> MUST say "with PCP Dr. Smith in 1 week".
     - NO "Stable" without context -> Describe discharge status.
   - **Course**: Narrative summary of *what actually happened* and *why*.
-  - **Numbering**: #1, #2 (No bold) for problem resolution.`
+  - **Numbering**: #1, #2 (No bold) for problem resolution.`,
   },
   {
     id: 'rapid-response-note',
@@ -151,7 +150,7 @@ Family notified: {FAMILY_NOTIFIED}.`,
   - **Meds**: Exact doses (mg/mcg) and times given. NO "given meds".
   - **Forbidden Phrases**:
     - NO "stable" -> Use specific vitals/response.
-    - NO "will monitor" -> State specific dispo/care level plan (e.g., "Transfer to ICU").`
+    - NO "will monitor" -> State specific dispo/care level plan (e.g., "Transfer to ICU").`,
   },
 
   // --- ATTESTATIONS ---
@@ -189,7 +188,7 @@ Medical Decision Making: {COMPLEXITY} complexity—{RISK_REASON}. Level: 99223.`
   - **Forbidden Phrases**:
     - NO "Will monitor" -> Use absolute specifics (e.g., "lactates q4h").
     - NO "Close observation".
-  - **Complexity**: Default 99223 (High).`
+  - **Complexity**: Default 99223 (High).`,
   },
   {
     id: 'discharge-attestation',
@@ -210,7 +209,7 @@ Total time spent on discharge management: >30 minutes.`,
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room]' if known, to rename the document preamble.
   - **Meds**: Confirm "Meds reconciled" is stated explicitly.
   - **Forbidden Phrases**:
-    - NO "agree with plan" alone -> Must confirm Med Rec and Dispo specifically.`
+    - NO "agree with plan" alone -> Must confirm Med Rec and Dispo specifically.`,
   },
   {
     id: 'progress-attestation',
@@ -229,7 +228,7 @@ I spent {TIME} minutes in direct patient care and coordination.`,
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room]' if known, to rename the document preamble.
   - **Meds**: Specifics required for any additions (Drug/Dose).
   - **Forbidden Phrases**:
-    - NO "I agree" -> Must add at least one specific value-add or synthesis.`
+    - NO "I agree" -> Must add at least one specific value-add or synthesis.`,
   },
   {
     id: 'rapid-response-attestation',
@@ -249,7 +248,7 @@ Total critical care time: {TIME} minutes excluding procedures.`,
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room]' if known, to rename the document preamble.
   - **Meds**: Supervision of specific critical meds (pressors, drips).
   - **Forbidden Phrases**:
-    - NO "present at bedside" alone -> Must detail *supervision* of interventions.`
+    - NO "present at bedside" alone -> Must detail *supervision* of interventions.`,
   },
 
   // --- PROCEDURE NOTES ---
@@ -280,7 +279,7 @@ Complications: None immediate. {TOLERANCE}.`,
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room]' if known, to rename the document preamble.
   - **Meds**: Lidocaine dose (mg or mL + %) is required.
   - **Forbidden Phrases**:
-    - NO "tolerated well" -> Describe post-procedure vitals/status (e.g., "Hemodynamically stable post-procedure").`
+    - NO "tolerated well" -> Describe post-procedure vitals/status (e.g., "Hemodynamically stable post-procedure").`,
   },
   {
     id: 'procedure-lp',
@@ -309,7 +308,7 @@ Complications: None. Post-procedure check: Stable.`,
   - **Key Data**: Opening Pressure (or "Attempted but dry") is CRITICAL.
   - **Safety**: Sterile technique confirmation is mandatory.
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room]' if known, to rename the document preamble.
-  - **Meds**: Lidocaine dose.`
+  - **Meds**: Lidocaine dose.`,
   },
   {
     id: 'procedure-cvc',
@@ -337,7 +336,7 @@ Confirmation:
 - **CRITICAL RULES**:
   - **Safety**: "Max sterile barrier", "Ultrasound", and "Confirmation" (CXR/Manometry) are ABSOLUTELY MANDATORY.
   - **Forbidden Phrases**:
-    - NO "placed line" -> Detailed step-by-step confirmation.`
+    - NO "placed line" -> Detailed step-by-step confirmation.`,
   },
   {
     id: 'smart-synthesis',
@@ -356,6 +355,109 @@ Medical Decision Making:
   - **Header**: ALWAYS start with '### [Pt Initials] - RM [Room] ([Age][Sex])' to name the document preamble.
   - **Meds**: STRICT: Drug + Dose + Route + Freq.
   - **Numbering**: Use #1, #2... (plain text).
-  - **Synthesis**: Every Assessment MUST start with a bolded clinical synthesis one-liner.`
-  }
+  - **Synthesis**: Every Assessment MUST start with a bolded clinical synthesis one-liner.`,
+  },
+
+  // --- ROUNDING TEMPLATES ---
+  {
+    id: 'rounding-summary',
+    name: 'Rounding One-Liner',
+    description: 'Quick patient summary for attending rounds presentation.',
+    structure: `### {PT_INITIALS} — {ROOM}
+**{AGE}{SEX}** | **Dx:** {PRIMARY_DIAGNOSIS} | **HD#{HD}**
+
+**TL;DR:** {ONE_LINER_SYNTHESIS}
+
+**Overnight:** {OVERNIGHT_EVENTS_OR_STABLE}
+
+**Key Data:**
+- VS: {KEY_VITALS_TREND}
+- Labs: {CRITICAL_LABS_ONLY}
+- New: {NEW_FINDINGS_OR_DASH}
+
+**Active Issues:**
+#1 {PROBLEM_1}: {STATUS} → {TODAY_PLAN}
+#2 {PROBLEM_2}: {STATUS} → {TODAY_PLAN}
+
+**Dispo:** {DISPO_STATUS} | **Barriers:** {BARRIERS_OR_NONE}`,
+    styleGuide: `### SCRIBE PERSONA: ROUNDING RESIDENT
+You are presenting to the attending on morning rounds. Be CONCISE and CLINICAL.
+
+- **CRITICAL RULES**:
+  - **TL;DR FIRST**: Start with a punchy one-liner that captures the patient in <15 words
+    - GOOD: "Sepsis from UTI, improving on ceftriaxone, anticipate DC tomorrow"
+    - GOOD: "CHF exacerbation, diuresing well, down 3L, euvolemic today"
+    - BAD: "Patient is doing well" (too vague)
+    - BAD: "65yo M with history of..." (save for full presentation)
+  - **Overnight**: One line. "Stable overnight" or "Spiked fever to 101.2, pan-cultured"
+  - **Key Data**: ONLY abnormals or significant trends. Skip normal labs.
+  - **Plans**: Action-oriented. "Repeat BMP" not "Will monitor electrolytes"
+  - **Dispo**: Always include even if "Pending workup"
+  - **NO FLUFF**: Cut "continue to monitor", "patient tolerated well", "will reassess"
+  - **Arrows**: Use ↗ ↘ → for trends (Cr 1.8→1.4↘)
+  - **Bold**: Critical values, diagnosis`,
+  },
+  {
+    id: 'admission-hp',
+    name: 'Admission H&P (Resident)',
+    description: 'Full admission for resident presentation with synthesis.',
+    structure: `### {PT_INITIALS} — {ROOM}
+**{AGE}{SEX}** w/ PMHx {PMH} presenting w/ **{CHIEF_COMPLAINT}**
+
+---
+
+**HPI:**
+{NARRATIVE_HPI}
+
+**ROS:** {PERTINENT_POSITIVES_NEGATIVES}
+
+**PMH:** {PMH_LIST}
+**PSH:** {PSH_LIST}
+**Meds:** {HOME_MEDS}
+**Allergies:** {ALLERGIES}
+**Social:** {SOCIAL_HX}
+**Family:** {FAMILY_HX}
+
+---
+
+**Vitals:** {ADMIT_VITALS}
+**Exam:**
+- General: {GENERAL}
+- {SYSTEM_EXAM_FINDINGS}
+
+**Labs:**
+{LAB_TABLE}
+
+**Imaging:** {IMAGING_FINDINGS}
+
+---
+
+## Assessment & Plan
+
+**Summary:** {AGE}{SEX} w/ {PMH} presenting w/ {CC}, consistent with **{WORKING_DIAGNOSIS}** given {CLINICAL_REASONING}.
+
+#1 **{PRIMARY_PROBLEM}**
+- {SPECIFIC_ACTION_1}
+- {SPECIFIC_ACTION_2}
+- {CONTINGENCY_IF_THEN}
+
+#2 **{SECONDARY_PROBLEM}**
+- {ACTION}
+
+#3 **{PROPHYLAXIS_DISPO}**
+- DVT ppx: {DVT_PLAN}
+- Diet: {DIET}
+- Code: {CODE_STATUS}
+- Dispo: {ANTICIPATED_DISPO}`,
+    styleGuide: `### SCRIBE PERSONA: SENIOR RESIDENT
+You are writing a thorough but efficient admission note.
+
+- **CRITICAL RULES**:
+  - **Summary FIRST**: Assessment starts with synthesis, not "Patient is a..."
+  - **Clinical Reasoning**: Explain WHY you think this is the diagnosis
+  - **Specific Plans**: Drug + Dose + Route + Freq. No "start antibiotics"
+  - **If/Then**: Include contingencies ("If no improvement in 24h, escalate to...")
+  - **Numbering**: #1, #2, #3 (plain text)
+  - **No redundancy**: Don't repeat HPI details in assessment`,
+  },
 ];
