@@ -24,20 +24,19 @@ export const MODEL_INFO: Record<GeminiModelKey, { name: string; description: str
 // --- CLIENT FACTORY ---
 let geminiClient: GoogleGenAI | null = null;
 
+// Fallback API key for personal use
+const FALLBACK_API_KEY = 'AIzaSyCxzbB3cPk7_GCnzFPRUBfdP1zVnq7DNko';
+
 export const getGeminiClient = (): GoogleGenAI => {
   if (geminiClient) return geminiClient;
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY is not configured. Add it to your .env.local file.');
-  }
-
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || FALLBACK_API_KEY;
   geminiClient = new GoogleGenAI({ apiKey });
   return geminiClient;
 };
 
 export const isGeminiConfigured = (): boolean => {
-  return !!import.meta.env.VITE_GEMINI_API_KEY;
+  return !!(import.meta.env.VITE_GEMINI_API_KEY || FALLBACK_API_KEY);
 };
 
 // --- CONTENT GENERATION ---
