@@ -4,7 +4,6 @@ import {
   StickyNote,
   Plus,
   Trash2,
-  Pin,
   User,
   GraduationCap,
   Stethoscope,
@@ -58,12 +57,10 @@ export const ScratchpadPanel: React.FC<ScratchpadPanelProps> = ({ isOpen, onClos
     currentRoster,
     createRoster,
     updateRoster,
-    teamMemberDirectory,
     addTeamMember,
     updateTeamMember,
     scratchpadNotes,
     addNote,
-    updateNote,
     deleteNote,
   } = useTeam();
 
@@ -132,7 +129,7 @@ export const ScratchpadPanel: React.FC<ScratchpadPanelProps> = ({ isOpen, onClos
     }
   };
 
-  const renderTeamMember = (member: TeamMember | null, role: TeamRole, index?: number) => {
+  const renderTeamMember = (member: TeamMember | null, role: TeamRole, _index?: number) => {
     if (!member) {
       return (
         <button
