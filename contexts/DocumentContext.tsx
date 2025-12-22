@@ -1,8 +1,18 @@
-import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentVersion, DocumentTemplate, SavedDocument } from '../types';
 import { INITIAL_DOCUMENT_CONTENT, DEFAULT_TEMPLATES } from '../constants';
 import { proofreadWithPro, generateHandoff } from '../services/aiService';
-import { parseRawContent, extractNameFromHeader, extractAdmissionDate } from '../utils/documentUtils';
+import {
+  parseRawContent,
+  extractNameFromHeader,
+  extractAdmissionDate,
+} from '../utils/documentUtils';
+import {
+  isSupabaseConfigured,
+  syncDocumentsToCloud,
+  fetchDocumentsFromCloud,
+  deleteDocumentFromCloud,
+} from '../services/supabaseClient';
 
 interface DocumentContextType {
   history: DocumentVersion[];
@@ -17,6 +27,12 @@ interface DocumentContextType {
   filterMode: 'all' | 'tasks';
   isEditing: boolean;
   toggleEdit: (forceState?: boolean) => void;
+
+  // Original Signout
+  originalSignout: string | null;
+  saveOriginalSignout: (content: string) => void;
+  showOriginalSignout: boolean;
+  setShowOriginalSignout: (show: boolean) => void;
 
   // Multi-Document State
   documents: SavedDocument[];
@@ -45,9 +61,17 @@ interface DocumentContextType {
   onToggleHistory: (forceState?: boolean) => void;
   setFilterMode: (mode: 'all' | 'tasks') => void;
   setActiveTemplateId: (id: string) => void;
+
+  // Cloud sync
+  isCloudEnabled: boolean;
+  isSyncing: boolean;
+  lastSyncTime: Date | null;
+  syncError: string | null;
+  syncToCloud: () => Promise<void>;
+  fetchFromCloud: () => Promise<void>;
 }
 
-export const DocumentContext = createContext<DocumentContextType>(null!);
+export const DocumentContext = createContext<DocumentContextType>({} as DocumentContextType);
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- MULTI-DOCUMENT STATE ---
@@ -69,23 +93,29 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (Array.isArray(parsedHistory) && parsedHistory.length > 0) {
             legacyContent = parsedHistory[parsedHistory.length - 1].content;
           }
-        } catch (e) { console.warn("Migration failed", e); }
+        } catch (e) {
+          console.warn('Migration failed', e);
+        }
       }
 
-      return [{
-        id: 'default',
-        name: 'My Patient List',
-        content: legacyContent,
-        lastModified: Date.now()
-      }];
+      return [
+        {
+          id: 'default',
+          name: 'My Patient List',
+          content: legacyContent,
+          lastModified: Date.now(),
+        },
+      ];
     } catch (e) {
-      console.error("Failed to load documents", e);
-      return [{ id: 'default', name: 'Error Recovery List', content: '', lastModified: Date.now() }];
+      console.error('Failed to load documents', e);
+      return [
+        { id: 'default', name: 'Error Recovery List', content: '', lastModified: Date.now() },
+      ];
     }
   });
 
-  const [activeDocumentId, setActiveDocumentId] = useState<string>(() =>
-    localStorage.getItem('superscribe_active_doc_id') || 'default'
+  const [activeDocumentId, setActiveDocumentId] = useState<string>(
+    () => localStorage.getItem('superscribe_active_doc_id') || 'default'
   );
 
   // --- CURRENT DOCUMENT SESSION STATE ---
@@ -96,17 +126,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initialize history when the active document changes or on mount
   useEffect(() => {
     const activeDoc = documents.find(d => d.id === activeDocumentId) || documents[0];
-    if (history.length === 0) {
+    if (history.length === 0 && activeDoc) {
       const initialVer = {
         id: Date.now().toString(),
         content: activeDoc.content,
         timestamp: new Date(activeDoc.lastModified),
-        label: 'Loaded Session'
+        label: 'Loaded Session',
       };
       setHistory([initialVer]);
       setCurrentVersionId(initialVer.id);
     }
-  }, [activeDocumentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeDocumentId, documents, history.length]);
 
   const [pendingContent, setPendingContent] = useState<string | null>(null);
   const [isProofreading, setIsProofreading] = useState(false);
@@ -114,6 +144,87 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [showHistory, setShowHistory] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'tasks'>('all');
   const [isEditing, setIsEditing] = useState(false);
+  const [showOriginalSignout, setShowOriginalSignout] = useState(false);
+
+  // Cloud sync state
+  const isCloudEnabled = isSupabaseConfigured();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Get original signout from current active document
+  const originalSignout = useMemo(() => {
+    const activeDoc = documents.find(d => d.id === activeDocumentId);
+    return activeDoc?.originalSignout || null;
+  }, [documents, activeDocumentId]);
+
+  // Save original signout for current document
+  const saveOriginalSignout = useCallback(
+    (content: string) => {
+      setDocuments(prev =>
+        prev.map(d => (d.id === activeDocumentId ? { ...d, originalSignout: content } : d))
+      );
+    },
+    [activeDocumentId]
+  );
+
+  // Cloud sync functions
+  const syncToCloud = useCallback(async () => {
+    if (!isCloudEnabled || isSyncing) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const { success, error } = await syncDocumentsToCloud(documents);
+      if (!success) {
+        setSyncError(error || 'Sync failed');
+      } else {
+        setLastSyncTime(new Date());
+      }
+    } catch (err: any) {
+      setSyncError(err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isCloudEnabled, isSyncing, documents]);
+
+  const fetchFromCloud = useCallback(async () => {
+    if (!isCloudEnabled || isSyncing) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const { documents: cloudDocs, error } = await fetchDocumentsFromCloud();
+      if (error) {
+        setSyncError(error);
+      } else if (cloudDocs.length > 0) {
+        setDocuments(cloudDocs);
+        setLastSyncTime(new Date());
+      }
+    } catch (err: any) {
+      setSyncError(err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isCloudEnabled, isSyncing]);
+
+  // Debounced auto-sync to cloud when documents change
+  useEffect(() => {
+    if (!isCloudEnabled) return;
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(() => {
+      syncToCloud();
+    }, 5000); // Sync after 5 seconds of inactivity
+
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [documents, isCloudEnabled]);
 
   // Derived Content
   const currentContent = history.find(v => v.id === currentVersionId)?.content || '';
@@ -122,12 +233,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 1. Sync current content to the active document in the 'documents' list
   useEffect(() => {
-    setDocuments(prevDocs => prevDocs.map(d => {
-      if (d.id === activeDocumentId && d.content !== currentContent) {
-        return { ...d, content: currentContent, lastModified: Date.now() };
-      }
-      return d;
-    }));
+    setDocuments(prevDocs =>
+      prevDocs.map(d => {
+        if (d.id === activeDocumentId && d.content !== currentContent) {
+          return { ...d, content: currentContent, lastModified: Date.now() };
+        }
+        return d;
+      })
+    );
   }, [currentContent, activeDocumentId]);
 
   // 2. Persist Documents to LocalStorage
@@ -135,21 +248,38 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       localStorage.setItem('superscribe_documents', JSON.stringify(documents));
       localStorage.setItem('superscribe_active_doc_id', activeDocumentId);
-    } catch (e) { console.error("Save failed", e); }
+    } catch (e) {
+      console.error('Save failed', e);
+    }
   }, [documents, activeDocumentId]);
 
   // Template Persistence
   const [templates, setTemplates] = useState<DocumentTemplate[]>(() => {
     try {
       const saved = localStorage.getItem('superscribe_templates');
-      return saved ? JSON.parse(saved) : DEFAULT_TEMPLATES;
-    } catch { return DEFAULT_TEMPLATES; }
+      const savedTemplates: DocumentTemplate[] = saved ? JSON.parse(saved) : [];
+
+      // Ensure all DEFAULT_TEMPLATES are present (merge by ID)
+      const merged = [...DEFAULT_TEMPLATES];
+      savedTemplates.forEach(st => {
+        const index = merged.findIndex(dt => dt.id === st.id);
+        if (index === -1) {
+          merged.push(st);
+        } else {
+          // If already exists, keep the saved one (user might have customized it)
+          // UNLESS it's a new default we just added and want to force
+          merged[index] = { ...merged[index], ...st };
+        }
+      });
+      return merged;
+    } catch {
+      return DEFAULT_TEMPLATES;
+    }
   });
 
   useEffect(() => {
     localStorage.setItem('superscribe_templates', JSON.stringify(templates));
   }, [templates]);
-
 
   // --- DOCUMENT MANAGEMENT ACTIONS ---
 
@@ -158,7 +288,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: Date.now().toString(),
       name: 'Untitled List',
       content: '',
-      lastModified: Date.now()
+      lastModified: Date.now(),
     };
     setDocuments(prev => [...prev, newDoc]);
     setActiveDocumentId(newDoc.id);
@@ -166,44 +296,59 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCurrentVersionId('init');
   }, []);
 
-  const switchDocument = useCallback((id: string) => {
-    const targetDoc = documents.find(d => d.id === id);
-    if (targetDoc) {
-      setActiveDocumentId(id);
-      const newVer = {
-        id: Date.now().toString(),
-        content: targetDoc.content,
-        timestamp: new Date(targetDoc.lastModified),
-        label: 'Session Start'
-      };
-      setHistory([newVer]);
-      setCurrentVersionId(newVer.id);
-      setPendingContent(null);
-      setIsEditing(false);
-    }
-  }, [documents]);
+  const switchDocument = useCallback(
+    (id: string) => {
+      const targetDoc = documents.find(d => d.id === id);
+      if (targetDoc) {
+        setActiveDocumentId(id);
+        const newVer = {
+          id: Date.now().toString(),
+          content: targetDoc.content,
+          timestamp: new Date(targetDoc.lastModified),
+          label: 'Session Start',
+        };
+        setHistory([newVer]);
+        setCurrentVersionId(newVer.id);
+        setPendingContent(null);
+        setIsEditing(false);
+      }
+    },
+    [documents]
+  );
 
   const renameDocument = useCallback((id: string, name: string) => {
-    setDocuments(prev => prev.map(d => d.id === id ? { ...d, name } : d));
+    setDocuments(prev => prev.map(d => (d.id === id ? { ...d, name } : d)));
   }, []);
 
-  const deleteDocument = useCallback((id: string) => {
-    setDocuments(prev => {
-      const filtered = prev.filter(d => d.id !== id);
-      if (id === activeDocumentId) {
-        const nextDoc = filtered[0];
-        if (nextDoc) {
-          setActiveDocumentId(nextDoc.id);
-        } else {
-          const defaultDoc = { id: 'default', name: 'My Patient List', content: '', lastModified: Date.now() };
-          setActiveDocumentId('default');
-          return [defaultDoc];
-        }
+  const deleteDocument = useCallback(
+    (id: string) => {
+      // Delete from cloud if configured
+      if (isCloudEnabled) {
+        deleteDocumentFromCloud(id).catch(console.error);
       }
-      return filtered;
-    });
-  }, [activeDocumentId]);
 
+      setDocuments(prev => {
+        const filtered = prev.filter(d => d.id !== id);
+        if (id === activeDocumentId) {
+          const nextDoc = filtered[0];
+          if (nextDoc) {
+            setActiveDocumentId(nextDoc.id);
+          } else {
+            const defaultDoc = {
+              id: 'default',
+              name: 'My Patient List',
+              content: '',
+              lastModified: Date.now(),
+            };
+            setActiveDocumentId('default');
+            return [defaultDoc];
+          }
+        }
+        return filtered;
+      });
+    },
+    [activeDocumentId]
+  );
 
   // --- EDITOR ACTIONS ---
 
@@ -218,7 +363,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: Date.now().toString(),
       content: newContent,
       timestamp: new Date(),
-      label: `Manual Edit`
+      label: `Manual Edit`,
     };
     setHistory(prev => [...prev, newVersion]);
     setCurrentVersionId(newVersion.id);
@@ -249,12 +394,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [history, currentVersionId]);
 
-
   const handleProofread = useCallback(async () => {
-    if (!activeTemplate) return;
+    if (!activeTemplate || !activeTemplate.id) return;
     setIsProofreading(true);
     const proofreadContent = await proofreadWithPro(currentContent, activeTemplate);
-    if (proofreadContent && proofreadContent !== currentContent && !proofreadContent.startsWith("Error")) {
+    if (
+      proofreadContent &&
+      proofreadContent !== currentContent &&
+      !proofreadContent.startsWith('Error')
+    ) {
       setPendingContent(proofreadContent);
     }
     setIsProofreading(false);
@@ -266,7 +414,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: Date.now().toString(),
       content: pendingContent,
       timestamp: new Date(),
-      label: `Revision ${history.length + 1}`
+      label: `Revision ${history.length + 1}`,
     };
     setHistory(prev => [...prev, newVersion]);
     setCurrentVersionId(newVersion.id);
@@ -278,7 +426,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const handleTemplateUpdate = useCallback((updatedTemplate: DocumentTemplate) => {
-    setTemplates(prev => prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
+    setTemplates(prev => prev.map(t => (t.id === updatedTemplate.id ? updatedTemplate : t)));
   }, []);
 
   const restoreVersion = useCallback((id: string) => {
@@ -298,12 +446,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: newDocId,
       name: newDocName,
       content: initialContent,
-      lastModified: Date.now()
+      lastModified: Date.now(),
     };
 
     setDocuments(prev => [...prev, newDoc]);
     setActiveDocumentId(newDocId);
-    setHistory([{ id: 'init', content: initialContent, timestamp: new Date(), label: 'New Patient Sheet' }]);
+    setHistory([
+      { id: 'init', content: initialContent, timestamp: new Date(), label: 'New Patient Sheet' },
+    ]);
     setCurrentVersionId('init');
   }, [documents.length]);
 
@@ -311,118 +461,145 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await generateHandoff(content);
   }, []);
 
-  const onSort = useCallback((type: 'name' | 'date') => {
-    const groups = parseRawContent(currentContent);
-    groups.sort((a, b) => {
-      if (a.header === '### Preamble') return -1;
-      if (b.header === '### Preamble') return 1;
-      if (type === 'name') {
-        return extractNameFromHeader(a.header).name.localeCompare(extractNameFromHeader(b.header).name);
-      } else if (type === 'date') {
-        return extractAdmissionDate(b.lines) - extractAdmissionDate(a.lines);
-      }
-      return 0;
-    });
-    let patientCounter = 1;
-    const newContent = groups.map(g => {
-      if (g.header === '### Preamble') return g.lines.join('\n');
-      const { name, room } = extractNameFromHeader(g.header);
-      const newHeader = `### ${patientCounter}. ${name}${room ? ` – ${room}` : ''}`;
-      patientCounter++;
-      return newHeader + '\n' + g.lines.join('\n');
-    }).join('\n\n').trim();
-    handleManualUpdate(newContent);
-  }, [currentContent, handleManualUpdate]);
+  const onSort = useCallback(
+    (type: 'name' | 'date') => {
+      const groups = parseRawContent(currentContent);
+      groups.sort((a, b) => {
+        if (a.header === '### Preamble') return -1;
+        if (b.header === '### Preamble') return 1;
+        if (type === 'name') {
+          return extractNameFromHeader(a.header).name.localeCompare(
+            extractNameFromHeader(b.header).name
+          );
+        } else if (type === 'date') {
+          return extractAdmissionDate(b.lines) - extractAdmissionDate(a.lines);
+        }
+        return 0;
+      });
+      let patientCounter = 1;
+      const newContent = groups
+        .map(g => {
+          if (g.header === '### Preamble') return g.lines.join('\n');
+          const { name, room, age, gender } = extractNameFromHeader(g.header);
+          const demographics = age || gender ? ` (${age}${gender})` : '';
+          const newHeader = `### ${patientCounter}. ${name}${room ? ` — ${room}` : ''}${demographics}`;
+          patientCounter++;
+          return newHeader + '\n' + g.lines.join('\n');
+        })
+        .join('\n\n')
+        .trim();
+      handleManualUpdate(newContent);
+    },
+    [currentContent, handleManualUpdate]
+  );
 
   const onCopyAll = useCallback(() => {
     navigator.clipboard.writeText(currentContent);
   }, [currentContent]);
 
   const onToggleHistory = useCallback((forceState?: boolean) => {
-    setShowHistory(prev => forceState !== undefined ? forceState : !prev);
+    setShowHistory(prev => (forceState !== undefined ? forceState : !prev));
   }, []);
 
   const toggleEdit = useCallback((forceState?: boolean) => {
-    setIsEditing(prev => forceState !== undefined ? forceState : !prev);
+    setIsEditing(prev => (forceState !== undefined ? forceState : !prev));
   }, []);
 
-  const value = useMemo(() => ({
-    history,
-    currentVersionId,
-    currentContent,
-    pendingContent,
-    isProofreading,
-    templates,
-    activeTemplateId,
-    activeTemplate,
-    showHistory,
-    filterMode,
-    isEditing,
-    documents,
-    activeDocumentId,
-    canUndo,
-    canRedo,
-    toggleEdit,
-    handleDocumentUpdate,
-    acceptPendingChanges,
-    rejectPendingChanges,
-    handleManualUpdate,
-    handleTemplateUpdate,
-    restoreVersion,
-    undo,
-    redo,
-    handleProofread,
-    onAddPatient,
-    onGenerateHandoff,
-    onSort,
-    onCopyAll,
-    onToggleHistory,
-    setFilterMode,
-    setActiveTemplateId,
-    createDocument,
-    switchDocument,
-    renameDocument,
-    deleteDocument,
-  }), [
-    history,
-    currentVersionId,
-    currentContent,
-    pendingContent,
-    isProofreading,
-    templates,
-    activeTemplateId,
-    activeTemplate,
-    showHistory,
-    filterMode,
-    isEditing,
-    documents,
-    activeDocumentId,
-    canUndo,
-    canRedo,
-    toggleEdit,
-    handleDocumentUpdate,
-    acceptPendingChanges,
-    rejectPendingChanges,
-    handleManualUpdate,
-    handleTemplateUpdate,
-    restoreVersion,
-    undo,
-    redo,
-    handleProofread,
-    onAddPatient,
-    onGenerateHandoff,
-    onSort,
-    onCopyAll,
-    onToggleHistory,
-    createDocument,
-    switchDocument,
-    renameDocument,
-    deleteDocument,
-  ]);
-
-  return (
-    <DocumentContext.Provider value={value}>
-      {children}
-    </DocumentContext.Provider>
+  const value = useMemo(
+    () => ({
+      history,
+      currentVersionId,
+      currentContent,
+      pendingContent,
+      isProofreading,
+      templates,
+      activeTemplateId,
+      activeTemplate,
+      showHistory,
+      filterMode,
+      isEditing,
+      documents,
+      activeDocumentId,
+      canUndo,
+      canRedo,
+      originalSignout,
+      saveOriginalSignout,
+      showOriginalSignout,
+      setShowOriginalSignout,
+      toggleEdit,
+      handleDocumentUpdate,
+      acceptPendingChanges,
+      rejectPendingChanges,
+      handleManualUpdate,
+      handleTemplateUpdate,
+      restoreVersion,
+      undo,
+      redo,
+      handleProofread,
+      onAddPatient,
+      onGenerateHandoff,
+      onSort,
+      onCopyAll,
+      onToggleHistory,
+      setFilterMode,
+      setActiveTemplateId,
+      createDocument,
+      switchDocument,
+      renameDocument,
+      deleteDocument,
+      isCloudEnabled,
+      isSyncing,
+      lastSyncTime,
+      syncError,
+      syncToCloud,
+      fetchFromCloud,
+    }),
+    [
+      history,
+      currentVersionId,
+      currentContent,
+      pendingContent,
+      isProofreading,
+      templates,
+      activeTemplateId,
+      activeTemplate,
+      showHistory,
+      filterMode,
+      isEditing,
+      documents,
+      activeDocumentId,
+      canUndo,
+      canRedo,
+      originalSignout,
+      saveOriginalSignout,
+      showOriginalSignout,
+      toggleEdit,
+      handleDocumentUpdate,
+      acceptPendingChanges,
+      rejectPendingChanges,
+      handleManualUpdate,
+      handleTemplateUpdate,
+      restoreVersion,
+      undo,
+      redo,
+      handleProofread,
+      onAddPatient,
+      onGenerateHandoff,
+      onSort,
+      onCopyAll,
+      onToggleHistory,
+      createDocument,
+      switchDocument,
+      renameDocument,
+      deleteDocument,
+      isCloudEnabled,
+      isSyncing,
+      lastSyncTime,
+      syncError,
+      syncToCloud,
+      fetchFromCloud,
+    ]
   );
+
+  return <DocumentContext.Provider value={value}>{children}</DocumentContext.Provider>;
 };

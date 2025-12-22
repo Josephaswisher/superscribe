@@ -1,9 +1,7 @@
 export enum Role {
   USER = 'user',
-  MODEL = 'model'
+  MODEL = 'model',
 }
-
-
 
 export interface Message {
   id: string;
@@ -26,11 +24,26 @@ export interface PatientData {
   name: string;
   age: number;
   gender: string;
+  room?: string;
   pmhx: string;
   admittedFor: string;
   summary: string;
   plan: string[];
   dispo?: string;
+
+  // Team assignments
+  attendingMD?: string;
+  residentMD?: string; // Senior resident or intern assigned
+  studentMD?: string; // Medical student following patient
+
+  // IDR-specific fields for interdisciplinary rounds
+  socialBarriers?: string[]; // Housing, transportation, insurance, etc.
+  ptNeeds?: string; // Physical therapy status/needs
+  otNeeds?: string; // Occupational therapy status/needs
+  cmNotes?: string; // Case management notes
+  swNotes?: string; // Social work notes
+  dietaryNeeds?: string;
+  dischargeBarriers?: string[];
 }
 
 export interface GeminiResponse {
@@ -52,6 +65,7 @@ export interface SavedDocument {
   name: string;
   content: string;
   lastModified: number;
+  originalSignout?: string; // Stores the original pasted content for reference
 }
 
 export interface DocumentTemplate {
@@ -73,7 +87,17 @@ export interface DashboardPatient {
   acuity: 'Low' | 'Medium' | 'High';
 }
 
-export type ViewMode = 'cards' | 'document' | 'dashboard' | 'labs' | 'meds' | 'plan' | 'critical' | 'handoff' | 'pages';
+export type ViewMode =
+  | 'cards'
+  | 'document'
+  | 'dashboard'
+  | 'labs'
+  | 'meds'
+  | 'plan'
+  | 'critical'
+  | 'handoff'
+  | 'pages'
+  | 'idr';
 export type UIDensity = 'compact' | 'normal' | 'spacious';
 
 export interface ExtractedPlan {

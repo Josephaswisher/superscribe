@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import { CRITICAL_LAB_REGEX, extractClinicalKeywords, STATUS_KEYWORDS } from '../../utils/documentUtils';
+import {
+  CRITICAL_LAB_REGEX,
+  extractClinicalKeywords,
+  STATUS_KEYWORDS,
+  extractNameFromHeader,
+} from '../../utils/documentUtils';
 
 export interface PatientVitals {
   text: string;
@@ -26,31 +31,32 @@ export interface PatientData {
     completed: number;
     progress: number;
   };
+  // Team assignments
+  residentMD: string;
+  studentMD: string;
 }
 
 export function usePatientData(header: string, lines: string[]): PatientData {
-  // Extract name and room from header
-  const { patientName, patientRoom } = useMemo(() => {
-    const rawHeader = header.replace(/^###\s*(\d+\.\s*)?/, '');
-    const separatorMatch = rawHeader.match(/\s[–-]\s/);
-    let name = rawHeader;
-    let room = '';
-
-    if (separatorMatch?.index) {
-      const potentialRoom = rawHeader.substring(separatorMatch.index + 3).trim();
-      if (potentialRoom.length < 15) {
-        name = rawHeader.substring(0, separatorMatch.index).trim();
-        room = potentialRoom;
-      }
-    }
-    return { patientName: name, patientRoom: room };
+  // Extract info from header using central utility
+  const {
+    name: patientName,
+    room: patientRoom,
+    age: headerAge,
+    gender: headerGender,
+  } = useMemo(() => {
+    return extractNameFromHeader(header);
   }, [header]);
 
-  // Extract age
+  // Extract age (prefer line-based but fallback/combine with header)
   const age = useMemo(() => {
     const ageLine = lines.find(l => l.match(/\*\*Age:\*\*/i));
-    return ageLine ? ageLine.replace(/\*\*Age:\*\*\s*/i, '').trim() : '';
-  }, [lines]);
+    const lineAge = ageLine ? ageLine.replace(/\*\*Age:\*\*\s*/i, '').trim() : '';
+
+    if (headerAge && headerGender) return `${headerAge}${headerGender}`;
+    if (lineAge) return lineAge;
+    if (headerAge) return headerAge;
+    return '';
+  }, [lines, headerAge, headerGender]);
 
   // Extract admission reason
   const admitReason = useMemo(() => {
@@ -90,9 +96,10 @@ export function usePatientData(header: string, lines: string[]): PatientData {
       l.match(/^(#+ |\*\*)?(Summary|Assessment|TL;DR|Impression)(:)?(\*\*)?/i)
     );
     if (idx === -1) return '';
-    let text = lines[idx]
-      ?.replace(/^(#+ |\*\*)?(Summary|Assessment|TL;DR|Impression)(:)?(\*\*)?/i, '')
-      .trim() ?? '';
+    let text =
+      lines[idx]
+        ?.replace(/^(#+ |\*\*)?(Summary|Assessment|TL;DR|Impression)(:)?(\*\*)?/i, '')
+        .trim() ?? '';
     if (!text && lines[idx + 1]) {
       text = lines[idx + 1]?.trim() ?? '';
     }
@@ -103,9 +110,7 @@ export function usePatientData(header: string, lines: string[]): PatientData {
   const dispo = useMemo(() => {
     const idx = lines.findIndex(l => l.match(/^(#+ |\*\*)?Dispo(sition)?(:)?(\*\*)?/i));
     if (idx === -1) return '';
-    let text = lines[idx]
-      ?.replace(/^(#+ |\*\*)?Dispo(sition)?(:)?(\*\*)?/i, '')
-      .trim() ?? '';
+    let text = lines[idx]?.replace(/^(#+ |\*\*)?Dispo(sition)?(:)?(\*\*)?/i, '').trim() ?? '';
     if (!text && lines[idx + 1]) {
       text = lines[idx + 1]?.trim() ?? '';
     }
@@ -115,10 +120,7 @@ export function usePatientData(header: string, lines: string[]): PatientData {
   // Extract vitals
   const vitals = useMemo((): PatientVitals | null => {
     const line = lines.find(
-      l =>
-        l.match(/^VS:|^\*\*VS:\*\*/i) ||
-        l.match(/\bBP:\s*\d+\/\d+/) ||
-        l.match(/^T:\s*\d+/)
+      l => l.match(/^VS:|^\*\*VS:\*\*/i) || l.match(/\bBP:\s*\d+\/\d+/) || l.match(/^T:\s*\d+/)
     );
     if (!line) return null;
     const text = line.replace(/^(\*\*VS:\*\*|VS:)\s*/i, '');
@@ -150,6 +152,35 @@ export function usePatientData(header: string, lines: string[]): PatientData {
     return { total, completed, progress };
   }, [lines]);
 
+  // Extract team assignments (resident and student)
+  const residentMD = useMemo(() => {
+    // Look for patterns like "Resident: Dr. Smith" or "**Resident:** Dr. Smith" or "Res: Dr. Smith"
+    const residentLine = lines.find(l =>
+      l.match(/\*?\*?(Resident|Res|Intern|PGY[123])[:]*\*?\*?\s*/i)
+    );
+    if (residentLine) {
+      return residentLine
+        .replace(/\*?\*?(Resident|Res|Intern|PGY[123])[:]*\*?\*?\s*/i, '')
+        .trim()
+        .replace(/^\*\*|\*\*$/g, '');
+    }
+    return '';
+  }, [lines]);
+
+  const studentMD = useMemo(() => {
+    // Look for patterns like "Student: Jane" or "**Student:** Jane MS3" or "MS3/MS4: Jane"
+    const studentLine = lines.find(l =>
+      l.match(/\*?\*?(Student|Med Student|MS[34]|Medical Student)[:]*\*?\*?\s*/i)
+    );
+    if (studentLine) {
+      return studentLine
+        .replace(/\*?\*?(Student|Med Student|MS[34]|Medical Student)[:]*\*?\*?\s*/i, '')
+        .trim()
+        .replace(/^\*\*|\*\*$/g, '');
+    }
+    return '';
+  }, [lines]);
+
   return {
     patientName,
     patientRoom,
@@ -163,5 +194,7 @@ export function usePatientData(header: string, lines: string[]): PatientData {
     vitals,
     criticalLabs,
     tasks,
+    residentMD,
+    studentMD,
   };
 }

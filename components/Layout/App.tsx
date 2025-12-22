@@ -2,34 +2,28 @@ import React, { useContext, useEffect } from 'react';
 import { DocumentView } from '../Document/DocumentView';
 import { ChatInterface } from '../Chat/ChatInterface';
 import { useResizable } from '../../hooks/useResizable';
-import { ThemeProvider } from '../../contexts/ThemeContext';
-import { UISettingsProvider, UISettingsContext } from '../../contexts/UISettingsContext';
-import { DocumentProvider, DocumentContext } from '../../contexts/DocumentContext';
+import { UISettingsContext } from '../../contexts/UISettingsContext';
+import { DocumentContext } from '../../contexts/DocumentContext';
 import { HistorySidebar } from './HistorySidebar';
 import { CommandPaletteModal } from '../modals/CommandPaletteModal';
-import { MacroProvider } from '../../contexts/MacroContext';
+import { OriginalSignoutPanel } from '../Document/OriginalSignoutPanel';
 import { MonitorOff } from 'lucide-react';
 
-export default function App() {
-  return (
-    <ThemeProvider>
-      <UISettingsProvider>
-        <DocumentProvider>
-          <MacroProvider>
-            <AppContent />
-          </MacroProvider>
-        </DocumentProvider>
-      </UISettingsProvider>
-    </ThemeProvider>
-  );
-}
-
-// Separate component to consume contexts
-const AppContent: React.FC = () => {
-  const { showHistory, onToggleHistory, currentVersionId, history, restoreVersion } = useContext(DocumentContext);
+// Main Layout Component
+const MainLayout: React.FC = () => {
+  const { showHistory, onToggleHistory, currentVersionId, history, restoreVersion } =
+    useContext(DocumentContext);
   const { width: sidebarWidth, startResizing } = useResizable(30);
-  const { isSidebarOpen, isCommandPaletteOpen, setIsCommandPaletteOpen, isZenMode, toggleZenMode } = useContext(UISettingsContext);
-  
+  const {
+    isSidebarOpen,
+    isCommandPaletteOpen,
+    setIsCommandPaletteOpen,
+    isZenMode,
+    toggleZenMode,
+    isOriginalSignoutOpen,
+    setIsOriginalSignoutOpen,
+  } = useContext(UISettingsContext);
+
   // Global Keyboard listener for Command Palette
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,8 +40,8 @@ const AppContent: React.FC = () => {
     <div className="flex h-screen w-screen overflow-hidden bg-gray-950 font-sans">
       {/* Left Panel: Chat Interface */}
       {isSidebarOpen && (
-        <div 
-          style={{ width: `${sidebarWidth}%` }} 
+        <div
+          style={{ width: `${sidebarWidth}%` }}
           className="h-full relative z-10 flex flex-col min-w-[320px] print:hidden shadow-2xl transition-all duration-300 border-r border-gray-800"
         >
           <ChatInterface />
@@ -65,24 +59,38 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Right Panel: Document/PDF Viewer */}
-      <div 
-        style={{ width: isSidebarOpen ? `${100 - sidebarWidth}%` : '100%' }} 
+      <div
+        style={{ width: isSidebarOpen ? `${100 - sidebarWidth}%` : '100%' }}
         className="h-full min-w-[350px] print:w-full print:absolute print:inset-0 print:z-50 print:bg-white transition-all duration-300 bg-[#1e1e1e] relative"
       >
         <DocumentView />
         {isZenMode && (
-            <button 
-                onClick={toggleZenMode}
-                className="fixed bottom-4 left-4 z-50 p-2 rounded-full bg-gray-800 text-gray-400 hover:text-white shadow-lg border border-gray-700 opacity-50 hover:opacity-100 transition-opacity"
-                title="Exit Zen Mode"
-            >
-                <MonitorOff className="w-4 h-4" />
-            </button>
+          <button
+            onClick={toggleZenMode}
+            className="fixed bottom-4 left-4 z-50 p-2 rounded-full bg-gray-800 text-gray-400 hover:text-white shadow-lg border border-gray-700 opacity-50 hover:opacity-100 transition-opacity"
+            title="Exit Zen Mode"
+          >
+            <MonitorOff className="w-4 h-4" />
+          </button>
         )}
       </div>
-      
-      <HistorySidebar isOpen={showHistory} onClose={() => onToggleHistory(false)} history={history} currentVersionId={currentVersionId} onRestore={restoreVersion} />
-      <CommandPaletteModal isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
+
+      <HistorySidebar
+        isOpen={showHistory}
+        onClose={() => onToggleHistory(false)}
+        history={history}
+        currentVersionId={currentVersionId}
+        onRestore={restoreVersion}
+      />
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
+      {isOriginalSignoutOpen && (
+        <OriginalSignoutPanel onClose={() => setIsOriginalSignoutOpen(false)} />
+      )}
     </div>
   );
 };
+
+export default MainLayout;

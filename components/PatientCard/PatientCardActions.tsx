@@ -56,10 +56,9 @@ export function PatientCardActions({
   }
 
   const buttonClass = (hoverBg: string, textColor: string, hoverTextColor?: string) =>
-    `p-2 rounded-lg transition-colors ${
-      isDarkMode
-        ? `hover:${hoverBg} ${textColor} ${hoverTextColor ? `hover:${hoverTextColor}` : ''}`
-        : `hover:${hoverBg} ${textColor} ${hoverTextColor ? `hover:${hoverTextColor}` : ''}`
+    `p-2 rounded-lg transition-colors ${isDarkMode
+      ? `hover:${hoverBg} ${textColor} ${hoverTextColor ? `hover:${hoverTextColor}` : ''}`
+      : `hover:${hoverBg} ${textColor} ${hoverTextColor ? `hover:${hoverTextColor}` : ''}`
     }`;
 
   return (
@@ -69,11 +68,10 @@ export function PatientCardActions({
           e.stopPropagation();
           onChatFocus();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode
+        className={`p-2 rounded-lg transition-colors ${isDarkMode
             ? 'hover:bg-blue-900/30 text-blue-400 hover:text-blue-300'
             : 'hover:bg-blue-50 text-blue-500 hover:text-blue-600'
-        }`}
+          }`}
         title={`Chat about ${patientName}`}
       >
         <MessageCircle className="w-4 h-4" />
@@ -82,13 +80,12 @@ export function PatientCardActions({
       <button
         onClick={e => {
           e.stopPropagation();
-          if (confirm('Delete this patient card?')) onDelete();
+          onDelete();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode
+        className={`p-2 rounded-lg transition-colors ${isDarkMode
             ? 'hover:bg-red-900/30 text-gray-400 hover:text-red-400'
             : 'hover:bg-red-50 text-gray-500 hover:text-red-500'
-        }`}
+          }`}
         title="Delete Patient"
       >
         <Trash2 className="w-4 h-4" />
@@ -99,9 +96,8 @@ export function PatientCardActions({
           e.stopPropagation();
           onEmrCopy();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-        }`}
+        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+          }`}
         title="Copy Plain Text (EMR Safe)"
       >
         <ClipboardType className="w-4 h-4" />
@@ -112,9 +108,8 @@ export function PatientCardActions({
           e.stopPropagation();
           onRawCopy();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-        }`}
+        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+          }`}
         title="Copy All Markdown"
       >
         <ClipboardCopy className="w-4 h-4" />
@@ -125,9 +120,8 @@ export function PatientCardActions({
           e.stopPropagation();
           onCopy();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-        }`}
+        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+          }`}
         title="Copy Text (Standard)"
       >
         <Copy className="w-4 h-4" />
@@ -138,9 +132,8 @@ export function PatientCardActions({
           e.stopPropagation();
           onEdit();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-        }`}
+        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+          }`}
         title="Edit Text"
       >
         <Edit3 className="w-4 h-4" />
@@ -151,9 +144,8 @@ export function PatientCardActions({
           e.stopPropagation();
           onToggleCollapse();
         }}
-        className={`p-2 rounded-lg transition-colors ${
-          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-        }`}
+        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+          }`}
         aria-expanded={!isCollapsed}
         aria-label={isCollapsed ? 'Expand card' : 'Collapse card'}
       >

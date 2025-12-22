@@ -1,5 +1,14 @@
 import { useContext } from 'react';
-import { Bed, Activity, Heart, Thermometer, Wind, AlertTriangle } from 'lucide-react';
+import {
+  Bed,
+  Activity,
+  Heart,
+  Thermometer,
+  Wind,
+  AlertTriangle,
+  User,
+  GraduationCap,
+} from 'lucide-react';
 import { ThemeContext } from '../../contexts/ThemeContext';
 import { highlightText } from '../../utils/documentUtils';
 import type { PatientData } from './usePatientData';
@@ -165,12 +174,43 @@ function PatientDemographics({
 }
 
 function PatientBadges({ data, isDarkMode }: { data: PatientData; isDarkMode: boolean }) {
-  const { statusBadges, clinicalKeywords } = data;
+  const { statusBadges, clinicalKeywords, residentMD, studentMD } = data;
 
-  if (statusBadges.length === 0 && clinicalKeywords.length === 0) return null;
+  const hasTeamAssignments = residentMD || studentMD;
+  if (statusBadges.length === 0 && clinicalKeywords.length === 0 && !hasTeamAssignments)
+    return null;
 
   return (
     <div className="flex flex-wrap gap-2">
+      {/* Team Assignment Badges */}
+      {residentMD && (
+        <span
+          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+            isDarkMode
+              ? 'bg-purple-900/30 border-purple-800 text-purple-300'
+              : 'bg-purple-50 border-purple-100 text-purple-700'
+          }`}
+          title="Assigned Resident"
+        >
+          <User className="w-3 h-3" />
+          {residentMD}
+        </span>
+      )}
+      {studentMD && (
+        <span
+          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+            isDarkMode
+              ? 'bg-amber-900/30 border-amber-800 text-amber-300'
+              : 'bg-amber-50 border-amber-100 text-amber-700'
+          }`}
+          title="Assigned Medical Student"
+        >
+          <GraduationCap className="w-3 h-3" />
+          {studentMD}
+        </span>
+      )}
+
+      {/* Status Badges */}
       {statusBadges.map(b => (
         <span
           key={b}

@@ -28,6 +28,10 @@ interface UISettingsContextType {
   setIsCommandPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMacroManagerOpen: boolean;
   setIsMacroManagerOpen: (b: boolean) => void;
+  isScratchpadOpen: boolean;
+  setIsScratchpadOpen: (b: boolean) => void;
+  isOriginalSignoutOpen: boolean;
+  setIsOriginalSignoutOpen: (b: boolean) => void;
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
   prefillChat: string;
@@ -40,9 +44,13 @@ export const UISettingsContext = createContext<UISettingsContextType>(null!);
 
 export const UISettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Persisted State
-  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('superscribe_viewMode') as ViewMode) || 'document');
-  const [uiDensity, setUiDensity] = useState<UIDensity>(() => (localStorage.getItem('superscribe_uiDensity') as UIDensity) || 'normal');
-  
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem('superscribe_viewMode') as ViewMode) || 'document'
+  );
+  const [uiDensity, setUiDensity] = useState<UIDensity>(
+    () => (localStorage.getItem('superscribe_uiDensity') as UIDensity) || 'normal'
+  );
+
   // Non-persisted UI states
   const [fontSize, setFontSize] = useState(14);
   const [isFluid, setIsFluid] = useState(false);
@@ -54,6 +62,8 @@ export const UISettingsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isDocumentManagerOpen, setIsDocumentManagerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMacroManagerOpen, setIsMacroManagerOpen] = useState(false);
+  const [isScratchpadOpen, setIsScratchpadOpen] = useState(false);
+  const [isOriginalSignoutOpen, setIsOriginalSignoutOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [prefillChat, setPrefillChat] = useState('');
   const [isZenMode, setIsZenMode] = useState(false);
@@ -65,93 +75,98 @@ export const UISettingsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [viewMode, uiDensity]);
 
   const toggleSearch = useCallback((forceState?: boolean) => {
-      setShowSearch(prev => forceState !== undefined ? forceState : !prev);
-      if (forceState === false) setSearchQuery(''); // Clear query when closing search
+    setShowSearch(prev => (forceState !== undefined ? forceState : !prev));
+    if (forceState === false) setSearchQuery(''); // Clear query when closing search
   }, []);
 
   const onCollapseAll = useCallback(() => {
-      setAllSectionsCollapsed(true);
+    setAllSectionsCollapsed(true);
   }, []);
 
   const onExpandAll = useCallback(() => {
-      setAllSectionsCollapsed(false);
-      // Reset to null after a short delay to allow the UI to update
-      setTimeout(() => setAllSectionsCollapsed(null), 100);
+    setAllSectionsCollapsed(false);
+    // Reset to null after a short delay to allow the UI to update
+    setTimeout(() => setAllSectionsCollapsed(null), 100);
   }, []);
-  
+
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen(prev => !prev);
   }, []);
 
   const toggleZenMode = useCallback(() => {
-      setIsZenMode(prev => {
-          // If entering Zen Mode, ensure sidebar is closed
-          if (!prev) setIsSidebarOpen(false);
-          // If exiting Zen Mode, restore sidebar
-          else setIsSidebarOpen(true);
-          return !prev;
-      });
+    setIsZenMode(prev => {
+      // If entering Zen Mode, ensure sidebar is closed
+      if (!prev) setIsSidebarOpen(false);
+      // If exiting Zen Mode, restore sidebar
+      else setIsSidebarOpen(true);
+      return !prev;
+    });
   }, []);
 
-  const value = useMemo(() => ({
-    fontSize,
-    setFontSize,
-    uiDensity,
-    setUiDensity,
-    isFluid,
-    setIsFluid,
-    allSectionsCollapsed,
-    setAllSectionsCollapsed,
-    showSearch,
-    toggleSearch,
-    searchQuery,
-    setSearchQuery,
-    viewMode,
-    setViewMode,
-    onCollapseAll,
-    onExpandAll,
-    isTemplateModalOpen,
-    setIsTemplateModalOpen,
-    isHandoffModalOpen,
-    setIsHandoffModalOpen,
-    isDocumentManagerOpen,
-    setIsDocumentManagerOpen,
-    isCommandPaletteOpen,
-    setIsCommandPaletteOpen,
-    isMacroManagerOpen,
-    setIsMacroManagerOpen,
-    isSidebarOpen,
-    toggleSidebar,
-    prefillChat,
-    setPrefillChat,
-    isZenMode,
-    toggleZenMode
-  }), [
-    fontSize,
-    uiDensity,
-    isFluid,
-    allSectionsCollapsed,
-    showSearch,
-    searchQuery,
-    viewMode,
-    isTemplateModalOpen,
-    isHandoffModalOpen,
-    isDocumentManagerOpen,
-    isCommandPaletteOpen,
-    isMacroManagerOpen,
-    isSidebarOpen,
-    toggleSearch,
-    onCollapseAll,
-    onExpandAll,
-    toggleSidebar,
-    prefillChat,
-    isZenMode,
-    toggleZenMode
-  ]);
-
-  return (
-    <UISettingsContext.Provider value={value}>
-      {children}
-    </UISettingsContext.Provider>
+  const value = useMemo(
+    () => ({
+      fontSize,
+      setFontSize,
+      uiDensity,
+      setUiDensity,
+      isFluid,
+      setIsFluid,
+      allSectionsCollapsed,
+      setAllSectionsCollapsed,
+      showSearch,
+      toggleSearch,
+      searchQuery,
+      setSearchQuery,
+      viewMode,
+      setViewMode,
+      onCollapseAll,
+      onExpandAll,
+      isTemplateModalOpen,
+      setIsTemplateModalOpen,
+      isHandoffModalOpen,
+      setIsHandoffModalOpen,
+      isDocumentManagerOpen,
+      setIsDocumentManagerOpen,
+      isCommandPaletteOpen,
+      setIsCommandPaletteOpen,
+      isMacroManagerOpen,
+      setIsMacroManagerOpen,
+      isScratchpadOpen,
+      setIsScratchpadOpen,
+      isOriginalSignoutOpen,
+      setIsOriginalSignoutOpen,
+      isSidebarOpen,
+      toggleSidebar,
+      prefillChat,
+      setPrefillChat,
+      isZenMode,
+      toggleZenMode,
+    }),
+    [
+      fontSize,
+      uiDensity,
+      isFluid,
+      allSectionsCollapsed,
+      showSearch,
+      searchQuery,
+      viewMode,
+      isTemplateModalOpen,
+      isHandoffModalOpen,
+      isDocumentManagerOpen,
+      isCommandPaletteOpen,
+      isMacroManagerOpen,
+      isScratchpadOpen,
+      isOriginalSignoutOpen,
+      isSidebarOpen,
+      toggleSearch,
+      onCollapseAll,
+      onExpandAll,
+      toggleSidebar,
+      prefillChat,
+      isZenMode,
+      toggleZenMode,
+    ]
   );
+
+  return <UISettingsContext.Provider value={value}>{children}</UISettingsContext.Provider>;
 };
