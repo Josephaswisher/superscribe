@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || 'AIzaSyCxzbB3cPk7_GCnzFPRUBfdP1zVnq7DNko';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
@@ -16,6 +16,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!GEMINI_API_KEY) {
+    return res
+      .status(500)
+      .json({ error: 'GEMINI_API_KEY not configured in Vercel environment variables' });
+  }
+
   try {
     const { model, contents, config, stream } = req.body;
 
@@ -28,8 +34,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
-        systemInstruction: config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined,
-        generationConfig: config?.responseMimeType ? { responseMimeType: config.responseMimeType } : undefined,
+        systemInstruction: config?.systemInstruction
+          ? { parts: [{ text: config.systemInstruction }] }
+          : undefined,
+        generationConfig: config?.responseMimeType
+          ? { responseMimeType: config.responseMimeType }
+          : undefined,
       }),
     });
 
