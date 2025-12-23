@@ -1,102 +1,86 @@
 /// <reference types="vite/client" />
-import { GoogleGenAI } from '@google/genai';
 import type { GeminiResponse } from '../types';
 
 // --- MODEL DEFINITIONS ---
 export const GEMINI_MODELS = {
-  flash: 'gemini-3-flash-preview',
-  pro: 'gemini-3-pro-preview',
+  flash: 'gemini-2.0-flash',
+  pro: 'gemini-1.5-pro',
 } as const;
 
 export type GeminiModelKey = keyof typeof GEMINI_MODELS;
 
 export const MODEL_INFO: Record<GeminiModelKey, { name: string; description: string }> = {
   flash: {
-    name: 'Gemini 3 Flash',
+    name: 'Gemini 2.0 Flash',
     description: 'Fast responses, great for quick documentation',
   },
   pro: {
-    name: 'Gemini 3 Pro',
+    name: 'Gemini 1.5 Pro',
     description: 'Advanced reasoning for complex medical analysis',
   },
 };
 
-// --- CLIENT FACTORY ---
-let geminiClient: GoogleGenAI | null = null;
+// --- PROXY CONFIGURATION ---
+// Use deployed Vercel endpoint to bypass hospital network blocks
+const PROXY_BASE_URL = import.meta.env.DEV 
+  ? 'https://superscribe-emulation.vercel.app'
+  : '';
 
-// Fallback API key for personal use
-const FALLBACK_API_KEY = 'AIzaSyCxzbB3cPk7_GCnzFPRUBfdP1zVnq7DNko';
+const getProxyEndpoint = () => `${PROXY_BASE_URL}/api/gemini`;
 
-export const getGeminiClient = (): GoogleGenAI => {
-  if (geminiClient) return geminiClient;
+export const isGeminiConfigured = (): boolean => true;
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || FALLBACK_API_KEY;
-  geminiClient = new GoogleGenAI({ apiKey });
-  return geminiClient;
-};
-
-export const isGeminiConfigured = (): boolean => {
-  return !!(import.meta.env.VITE_GEMINI_API_KEY || FALLBACK_API_KEY);
-};
-
-// --- CONTENT GENERATION ---
+// --- PROXY CALL ---
 interface GeminiMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
 }
 
+async function callGeminiProxy(
+  model: string,
+  contents: GeminiMessage[],
+  config: { systemInstruction?: string; responseMimeType?: string }
+): Promise<string> {
+  const response = await fetch(getProxyEndpoint(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, contents, config, stream: false }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    if (response.status === 0 || errorText.includes('blocked') || errorText.includes('CORS')) {
+      throw new Error('Network blocked: Your hospital network may be blocking API requests. Try:\n1. Switch to mobile hotspot\n2. Use hospital VPN if available\n3. Ask IT to whitelist *.vercel.app');
+    }
+    throw new Error(`API Error: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// --- CONTENT GENERATION ---
 export async function generateWithGemini(
   messages: GeminiMessage[],
   systemInstruction: string,
   modelKey: GeminiModelKey = 'flash',
   onChunk?: (text: string) => void
 ): Promise<GeminiResponse> {
-  const ai = getGeminiClient();
   const modelId = GEMINI_MODELS[modelKey];
-
-  console.log(`[Gemini] Generating with model: ${modelId}`);
+  console.log(`[Gemini] Generating with model: ${modelId} via proxy`);
 
   try {
-    // Build the contents array with system instruction prepended
-    const contents = messages.map(m => ({
-      role: m.role,
-      parts: m.parts,
-    }));
-
+    const contents = messages.map(m => ({ role: m.role, parts: m.parts }));
+    const text = await callGeminiProxy(modelId, contents, { systemInstruction });
+    
     if (onChunk) {
-      // Streaming mode
-      const response = await ai.models.generateContentStream({
-        model: modelId,
-        contents,
-        config: {
-          systemInstruction,
-        },
-      });
-
-      let accumulated = '';
-      for await (const chunk of response) {
-        const text = chunk.text || '';
-        accumulated += text;
-        onChunk(accumulated);
-      }
-
-      return parseGeminiResponse(accumulated);
-    } else {
-      // Non-streaming mode
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents,
-        config: {
-          systemInstruction,
-        },
-      });
-
-      const text = response.text || '';
-      return parseGeminiResponse(text);
+      onChunk(text);
     }
+    
+    return parseGeminiResponse(text);
   } catch (error: any) {
     console.error('[Gemini] Generation failed:', error);
-    throw new Error(`Gemini API Error: ${error.message}`);
+    throw new Error(error.message || 'Gemini API Error');
   }
 }
 
@@ -107,18 +91,12 @@ export async function generateJsonWithGemini(
   modelKey: GeminiModelKey = 'flash',
   onChunk?: (text: string) => void
 ): Promise<GeminiResponse> {
-  const ai = getGeminiClient();
   const modelId = GEMINI_MODELS[modelKey];
-
-  console.log(`[Gemini] Generating JSON with model: ${modelId}`);
+  console.log(`[Gemini] Generating JSON with model: ${modelId} via proxy`);
 
   try {
-    const contents = messages.map(m => ({
-      role: m.role,
-      parts: m.parts,
-    }));
-
-    // Add JSON instruction to system prompt
+    const contents = messages.map(m => ({ role: m.role, parts: m.parts }));
+    
     const jsonSystemInstruction = `${systemInstruction}
 
 CRITICAL: You MUST respond with valid JSON matching this schema:
@@ -128,45 +106,24 @@ CRITICAL: You MUST respond with valid JSON matching this schema:
   "updatedDocument": "string | null - full updated document or null if no changes"
 }`;
 
+    const text = await callGeminiProxy(modelId, contents, { 
+      systemInstruction: jsonSystemInstruction,
+      responseMimeType: 'application/json'
+    });
+    
     if (onChunk) {
-      const response = await ai.models.generateContentStream({
-        model: modelId,
-        contents,
-        config: {
-          systemInstruction: jsonSystemInstruction,
-          responseMimeType: 'application/json',
-        },
-      });
-
-      let accumulated = '';
-      for await (const chunk of response) {
-        const text = chunk.text || '';
-        accumulated += text;
-        onChunk(accumulated);
-      }
-
-      return parseGeminiJsonResponse(accumulated);
-    } else {
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents,
-        config: {
-          systemInstruction: jsonSystemInstruction,
-          responseMimeType: 'application/json',
-        },
-      });
-
-      return parseGeminiJsonResponse(response.text || '{}');
+      onChunk(text);
     }
+    
+    return parseGeminiJsonResponse(text);
   } catch (error: any) {
     console.error('[Gemini] JSON generation failed:', error);
-    throw new Error(`Gemini API Error: ${error.message}`);
+    throw new Error(error.message || 'Gemini API Error');
   }
 }
 
 // --- RESPONSE PARSERS ---
 function parseGeminiResponse(text: string): GeminiResponse {
-  // Try to parse as JSON first
   try {
     const cleaned = text
       .replace(/```json\s*/g, '')
@@ -179,7 +136,6 @@ function parseGeminiResponse(text: string): GeminiResponse {
       updatedDocument: parsed.updatedDocument,
     };
   } catch {
-    // Return as plain text response
     return { text };
   }
 }
@@ -212,18 +168,9 @@ export async function chatWithGemini(
   systemInstruction: string,
   modelKey: GeminiModelKey = 'flash'
 ): Promise<string> {
-  const ai = getGeminiClient();
   const modelId = GEMINI_MODELS[modelKey];
+  console.log(`[Gemini] Simple chat with model: ${modelId} via proxy`);
 
-  console.log(`[Gemini] Simple chat with model: ${modelId}`);
-
-  const response = await ai.models.generateContent({
-    model: modelId,
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction,
-    },
-  });
-
-  return response.text || '';
+  const contents = [{ role: 'user' as const, parts: [{ text: userPrompt }] }];
+  return callGeminiProxy(modelId, contents, { systemInstruction });
 }
