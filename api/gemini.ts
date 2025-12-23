@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_KEY = 'AIzaSyAGDJpO6hJ_2PlwHE9Ohvmb7_mEaYk4hHM';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
@@ -14,12 +14,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  if (!GEMINI_API_KEY) {
-    return res
-      .status(500)
-      .json({ error: 'GEMINI_API_KEY not configured in Vercel environment variables' });
   }
 
   try {
