@@ -30,7 +30,9 @@ import {
   cleanTextForEMR,
   extractClinicalKeywords,
   CRITICAL_LAB_REGEX,
+  extractVitalsFromLines,
 } from '../../utils/documentUtils';
+import { processTemplate } from '../../utils/templateUtils';
 import { ThemeContext } from '../../contexts/ThemeContext';
 import { UISettingsContext } from '../../contexts/UISettingsContext';
 import { MacroContext } from '../../contexts/MacroContext';
@@ -50,6 +52,8 @@ interface PatientCardProps {
   onDragStart?: (e: React.DragEvent, index: number) => void;
   onDragOver?: (e: React.DragEvent, index: number) => void;
   onDrop?: (e: React.DragEvent, index: number) => void;
+  onSlashInput?: (e: React.FormEvent<HTMLTextAreaElement>, context?: { header: string; lines: string[] }) => void;
+  onSlashKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 const DENSITY_STYLES: Record<UIDensity, { wrapper: string; header: string; body: string }> = {
@@ -115,6 +119,8 @@ export const PatientCard: React.FC<PatientCardProps> = React.memo(
     onDragStart,
     onDragOver,
     onDrop,
+    onSlashInput,
+    onSlashKeyDown,
   }) => {
     const { isDarkMode } = useContext(ThemeContext);
     const { fontSize, uiDensity, setPrefillChat } = useContext(UISettingsContext);
@@ -222,10 +228,23 @@ export const PatientCard: React.FC<PatientCardProps> = React.memo(
     }, [editContent, isEditing]);
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (onSlashInput) onSlashInput(e, { header, lines });
       const newValue = e.target.value;
       if (newValue.endsWith(' ') || newValue.endsWith('\n')) {
-        const expanded = expandMacros(newValue);
-        setEditContent(expanded);
+        let textToProcess = newValue;
+
+        // 1. Expand Macros first (e.g. .norm -> text)
+        const expanded = expandMacros(textToProcess);
+
+        // 2. Process Smart Templates (e.g. {{vitals}} -> active data)
+        // We do this if macro expansion changed something OR if we detect brackets
+        if (expanded !== textToProcess || expanded.includes('{{')) {
+          textToProcess = processTemplate(expanded, lines, header);
+        } else {
+          textToProcess = expanded;
+        }
+
+        setEditContent(textToProcess);
       } else {
         setEditContent(newValue);
       }
@@ -257,7 +276,8 @@ export const PatientCard: React.FC<PatientCardProps> = React.memo(
       saveLine();
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (onSlashKeyDown) onSlashKeyDown(e);
       if (e.key === 'Escape') setIsEditing(false);
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -355,18 +375,7 @@ export const PatientCard: React.FC<PatientCardProps> = React.memo(
 
     // New Extracted Data: Vitals & Criticals
     const vitals = useMemo(() => {
-      const line = lines.find(
-        l => l.match(/^VS:|^\*\*VS:\*\*/i) || l.match(/\bBP:\s*\d+\/\d+/) || l.match(/^T:\s*\d+/)
-      );
-      if (!line) return null;
-      const text = line.replace(/^(\*\*VS:\*\*|VS:)\s*/i, '');
-      return {
-        text,
-        bp: text.match(/BP:?\s*(\d{2,3}\/\d{2,3})/i)?.[1],
-        hr: text.match(/HR:?\s*(\d{2,3})/i)?.[1],
-        temp: text.match(/[T|Temp]:?\s*(\d{2,3}(\.\d)?)/i)?.[1],
-        o2: text.match(/SpO2:?\s*(\d{2,3}%?)/i)?.[1] || text.match(/O2:?\s*(\d{2,3}%?)/i)?.[1],
-      };
+      return extractVitalsFromLines(lines);
     }, [lines]);
 
     // Mock sparkline data generator based on value (Simulated for Demo)

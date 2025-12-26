@@ -15,7 +15,7 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
     const [editingMacro, setEditingMacro] = useState<Macro | null>(null);
     const [newKey, setNewKey] = useState('');
     const [newValue, setNewValue] = useState('');
-    
+
     useEffect(() => {
         if (!isOpen) {
             setEditingMacro(null);
@@ -33,14 +33,14 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
             setNewValue('');
         }
     };
-    
+
     const handleUpdate = () => {
         if (editingMacro) {
             updateMacro(editingMacro.id, editingMacro.key, editingMacro.value);
             setEditingMacro(null);
         }
     };
-    
+
     const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>, macro?: Macro) => {
         let value = e.target.value;
         if (!value.startsWith('.')) {
@@ -55,7 +55,7 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
 
     const renderMacroItem = (macro: Macro) => {
         const isEditingThis = editingMacro?.id === macro.id;
-        
+
         if (isEditingThis) {
             return (
                 <div className="p-3 bg-gray-700/50 border border-accent-primary/50 rounded-lg space-y-2">
@@ -74,8 +74,8 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
                         className="w-full bg-black/50 p-2 rounded border border-gray-600 focus:outline-none focus:ring-1 focus:ring-accent-primary text-sm"
                     />
                     <div className="flex justify-end gap-2">
-                         <button onClick={() => setEditingMacro(null)} className="p-2 rounded hover:bg-gray-600 text-gray-300"><X className="w-4 h-4" /></button>
-                         <button onClick={handleUpdate} className="p-2 rounded bg-green-600 hover:bg-green-500 text-white"><Save className="w-4 h-4" /></button>
+                        <button onClick={() => setEditingMacro(null)} className="p-2 rounded hover:bg-gray-600 text-gray-300"><X className="w-4 h-4" /></button>
+                        <button onClick={handleUpdate} className="p-2 rounded bg-green-600 hover:bg-green-500 text-white"><Save className="w-4 h-4" /></button>
                     </div>
                 </div>
             );
@@ -114,6 +114,18 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
                     {macros.map(renderMacroItem)}
                 </div>
 
+                {/* Smart Variables Cheat Sheet */}
+                <div className="px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10 border-t border-b border-gray-200 dark:border-gray-700/50 shrink-0">
+                    <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-2 uppercase tracking-wide">Available Smart Variables</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {['{{name}}', '{{age}}', '{{gender}}', '{{room}}', '{{vitals}}', '{{vitals.bp}}', '{{vitals.hr}}', '{{vitals.temp}}', '{{problems}}', '{{date}}', '{{time}}'].map(v => (
+                            <code key={v} className="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-black/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-mono">
+                                {v}
+                            </code>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Add New Form */}
                 <div className="p-4 border-t border-gray-700/50 bg-black/20 shrink-0 space-y-2">
                     <h4 className="text-sm font-bold text-gray-300">Add New Macro</h4>
@@ -125,14 +137,14 @@ export const MacroManagerModal: React.FC<MacroManagerModalProps> = ({ isOpen, on
                             placeholder=".shortcut"
                             className="w-1/3 bg-black/50 p-2 rounded border border-gray-600 focus:outline-none focus:ring-1 focus:ring-accent-primary"
                         />
-                         <textarea
+                        <textarea
                             value={newValue}
                             onChange={(e) => setNewValue(e.target.value)}
                             placeholder="Enter the text to expand..."
                             rows={1}
                             className="flex-1 bg-black/50 p-2 rounded border border-gray-600 focus:outline-none focus:ring-1 focus:ring-accent-primary text-sm"
                         />
-                         <button 
+                        <button
                             onClick={handleAdd}
                             className="p-2 rounded bg-[#d97757] hover:bg-[#c66a4d] text-white self-stretch flex items-center justify-center"
                         >

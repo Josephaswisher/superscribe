@@ -4,6 +4,22 @@ export const CRITICAL_LAB_REGEX =
   /\b(K|Potassium)\s*[:-]?\s*(?:[0-2]\.\d|[0-2]|(?:5\.[6-9]|[6-9]\d*\.?\d*)|(?:[6-9]\.?\d*))\b|\b(Na|Sodium)\s*[:-]?\s*(?:(?:1[0-1]\d|[0-9]\d)\.\d*|1[0-9]\d\.\d*|(?:15[1-9]|1[6-9]\d|[2-9]\d{2,})\.\d*)\b|\b(Hgb|Hemoglobin)\s*[:-]?\s*(?:[0-6]\.\d|[0-6])\b|\b(Lactate)\s*[:-]?\s*(?:[4-9]\.\d|[4-9]|\d{2,}\.?\d*)\b|\b(INR)\s*[:-]?\s*(?:[5-9]\.\d|[5-9]|\d{2,}\.?\d*)\b|\b(pH)\s*[:-]?\s*(?:[0-6]\.\d|7\.[0-2]\d)\b/gi;
 export const VITALS_REGEX =
   /\b(T: ?\d{2,3}(\.\d)?°?C?|BP: ?\d{2,3}\/\d{2,3}|HR: ?\d{2,3}|RR: ?\d{1,2}|SpO2: ?\d{2,3}%?)/gi;
+
+export const extractVitalsFromLines = (lines: string[]) => {
+  const line = lines.find(
+    l => l.match(/^VS:|^\*\*VS:\*\*/i) || l.match(/\bBP:\s*\d+\/\d+/) || l.match(/^T:\s*\d+/)
+  );
+  if (!line) return null;
+  const text = line.replace(/^(\*\*VS:\*\*|VS:)\s*/i, '');
+  return {
+    text,
+    bp: text.match(/BP:?\s*(\d{2,3}\/\d{2,3})/i)?.[1],
+    hr: text.match(/HR:?\s*(\d{2,3})/i)?.[1],
+    temp: text.match(/[T|Temp]:?\s*(\d{2,3}(\.\d)?)/i)?.[1],
+    o2: text.match(/SpO2:?\s*(\d{2,3}%?)/i)?.[1] || text.match(/O2:?\s*(\d{2,3}%?)/i)?.[1],
+  };
+};
+
 export const MEDS_REGEX =
   /\b\d+(\.\d+)?\s*(mg|mcg|g|units|L|ml)\b|\b(PO|IV|IM|SC|BID|TID|Q\d+H|PRN)\b/gi;
 export const LABS_REGEX =
@@ -63,7 +79,16 @@ export const cleanTextForEMR = (text: string): string => {
     .trim();
 };
 
-export const getDynamicPreambleHeader = (lines: string[], index?: number): string => {
+export const getDynamicPreambleHeader = (
+  lines: string[],
+  index?: number,
+  isPreamble = false
+): string => {
+  // For preamble sections without patient data, return "Preamble"
+  if (isPreamble) {
+    return '### Preamble';
+  }
+
   let name = '';
   let room = '';
   let age = '';
@@ -143,7 +168,9 @@ export const parseRawContent = (content: string) => {
       const lines = section.trim().split('\n');
 
       const isInitialPreamble = index === 0 && !content.startsWith('### ');
-      const header = isInitialPreamble ? getDynamicPreambleHeader(lines) : `### ${lines[0]}`;
+      const header = isInitialPreamble
+        ? getDynamicPreambleHeader(lines, undefined, true)
+        : `### ${lines[0]}`;
 
       const bodyLines = isInitialPreamble ? lines : lines.slice(1);
       return { header, lines: bodyLines };
@@ -164,8 +191,8 @@ export const extractNameFromHeader = (header: string) => {
 
   if (roomParts.length > 1) {
     const rest = (roomParts[1] as string).trim();
-    // Pattern: "402-B (65M)"
-    const roomDematch = rest.match(/^([^\s(]+)(?:\s*\(([^)]+)\))?/);
+    // Pattern: "Room 101 (65M)" or "402-B (65M)"
+    const roomDematch = rest.match(/^(.+?)(?:\s*\(([^)]+)\))?\s*$/);
     if (roomDematch && roomDematch[1]) {
       room = roomDematch[1].trim();
       const demo = roomDematch[2];
