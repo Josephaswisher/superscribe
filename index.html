@@ -1,78 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SuperScribe</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              gray: {
-                750: '#2d2d2d',
-                850: '#1a1a1a',
-                950: '#0a0a0a',
-              },
-              accent: {
-                primary: '#d97757', // Terracotta color from screenshot breadcrumb
-              }
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperScribe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gray: {
+              750: '#2d2d2d',
+              850: '#1a1a1a',
+              950: '#0a0a0a',
             },
-            fontFamily: {
-              serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
-              sans: ['Inter', 'system-ui', 'sans-serif'],
+            accent: {
+              primary: '#d97757', // Terracotta color from screenshot breadcrumb
             }
           },
+          fontFamily: {
+            serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
         },
-      }
-    </script>
-    <style>
-      /* Custom scrollbar for dark theme elegance */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #4a4a4a;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #5a5a5a;
-      }
-      /* Basic Markdown Table Styling */
-      .markdown-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 1em 0;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        font-size: 0.9em;
-      }
-      .markdown-table th, .markdown-table td {
-        border: 1px solid #e2e8f0; /* Light gray for light theme */
-        padding: 0.5em 0.8em;
-        text-align: left;
-      }
-      .markdown-table thead {
-        background-color: #f7fafc; /* Lighter background for header */
-      }
-      .dark .markdown-table th, .dark .markdown-table td {
-        border: 1px solid #4a4a4a; /* Darker gray for dark theme */
-      }
-      .dark .markdown-table thead {
-        background-color: #2d2d2d; /* Darker background for header */
-      }
-      .dark .markdown-table th {
-        color: #e2e8f0;
-      }
-      .dark .markdown-table td {
-        color: #cbd5e0;
-      }
-    </style>
+      },
+    }
+  </script>
+  <style>
+    /* Custom scrollbar for dark theme elegance */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4a4a4a;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #5a5a5a;
+    }
+
+    /* Basic Markdown Table Styling */
+    .markdown-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.9em;
+    }
+
+    .markdown-table th,
+    .markdown-table td {
+      border: 1px solid #e2e8f0;
+      /* Light gray for light theme */
+      padding: 0.5em 0.8em;
+      text-align: left;
+    }
+
+    .markdown-table thead {
+      background-color: #f7fafc;
+      /* Lighter background for header */
+    }
+
+    .dark .markdown-table th,
+    .dark .markdown-table td {
+      border: 1px solid #4a4a4a;
+      /* Darker gray for dark theme */
+    }
+
+    .dark .markdown-table thead {
+      background-color: #2d2d2d;
+      /* Darker background for header */
+    }
+
+    .dark .markdown-table th {
+      color: #e2e8f0;
+    }
+
+    .dark .markdown-table td {
+      color: #cbd5e0;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -85,10 +102,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-gray-900 text-gray-100 overflow-hidden h-screen w-screen">
-    <div id="root" class="h-full w-full"></div>
+
+<body class="bg-gray-900 text-gray-100 overflow-hidden h-screen w-screen">
+  <div id="root" class="h-full w-full"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

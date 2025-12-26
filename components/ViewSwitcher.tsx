@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useCallback } from 'react';
 import {
+  Globe,
   LayoutGrid,
   FileText,
   Activity,
@@ -34,6 +35,19 @@ interface ViewOption {
 }
 
 const VIEW_OPTIONS: ViewOption[] = [
+  {
+    id: 'global',
+    label: 'Global View',
+    shortLabel: 'Global',
+    icon: Globe,
+    shortcut: '`',
+    color: {
+      active: 'bg-cyan-500 text-white',
+      inactive: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+      darkActive: 'bg-cyan-600 text-white',
+      darkInactive: 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+    },
+  },
   {
     id: 'cards',
     label: 'Patient Cards',
@@ -126,11 +140,24 @@ const VIEW_OPTIONS: ViewOption[] = [
     },
   },
   {
+    id: 'table',
+    label: 'Patient Table',
+    shortLabel: 'Table',
+    icon: Users,
+    shortcut: '8',
+    color: {
+      active: 'bg-indigo-500 text-white',
+      inactive: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+      darkActive: 'bg-indigo-600 text-white',
+      darkInactive: 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+    },
+  },
+  {
     id: 'handoff',
     label: 'Handoff',
     shortLabel: 'Handoff',
     icon: FileOutput,
-    shortcut: '8',
+    shortcut: '9',
     color: {
       active: 'bg-indigo-500 text-white',
       inactive: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
@@ -143,7 +170,7 @@ const VIEW_OPTIONS: ViewOption[] = [
     label: 'Pages',
     shortLabel: 'Pages',
     icon: Phone,
-    shortcut: '9',
+    shortcut: '0',
     color: {
       active: 'bg-amber-500 text-white',
       inactive: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
@@ -163,7 +190,6 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   // Keyboard shortcuts
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Only trigger if no modifier keys and not in an input
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -181,41 +207,39 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const containerClass = isDarkMode
+    ? 'bg-gray-800/50 p-1 border-gray-700'
+    : 'bg-gray-100 p-1 border-gray-200';
+
   return (
-    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+    <div className={`inline-flex flex-wrap gap-1 rounded-lg border ${containerClass} ${className}`}>
       {VIEW_OPTIONS.map(option => {
         const Icon = option.icon;
         const isActive = currentView === option.id;
-        const colorClass = isActive
-          ? isDarkMode
-            ? option.color.darkActive
-            : option.color.active
-          : isDarkMode
-            ? option.color.darkInactive
-            : option.color.inactive;
+
+        let buttonClass = `
+          flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200
+        `;
+
+        if (isActive) {
+          buttonClass += isDarkMode
+            ? ' bg-gray-700 text-white shadow-sm ring-1 ring-white/10'
+            : ' bg-white text-gray-900 shadow-sm ring-1 ring-black/5';
+        } else {
+          buttonClass += isDarkMode
+            ? ' text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            : ' text-gray-500 hover:text-gray-900 hover:bg-gray-200/50';
+        }
 
         return (
           <button
             key={option.id}
             onClick={() => onViewChange(option.id)}
             title={`${option.label} (${option.shortcut})`}
-            className={`
-              flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium
-              transition-all duration-150 ease-out
-              ${colorClass}
-              ${isActive ? 'shadow-md scale-105' : 'shadow-sm'}
-            `}
+            className={buttonClass}
           >
-            <Icon className="w-4 h-4" />
-            <span className="hidden sm:inline">{option.shortLabel}</span>
-            <span
-              className={`
-              text-xs px-1.5 py-0.5 rounded-full ml-1
-              ${isActive ? 'bg-white/20' : isDarkMode ? 'bg-gray-600' : 'bg-gray-200'}
-            `}
-            >
-              {option.shortcut}
-            </span>
+            <Icon className={`w-3.5 h-3.5 ${isActive ? 'opacity-100' : 'opacity-70'}`} />
+            <span className="">{option.shortLabel}</span>
           </button>
         );
       })}

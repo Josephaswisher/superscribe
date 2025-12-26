@@ -44,6 +44,7 @@ export interface PatientData {
   swNotes?: string; // Social work notes
   dietaryNeeds?: string;
   dischargeBarriers?: string[];
+  customFields?: Record<string, string>;
 }
 
 export interface GeminiResponse {
@@ -88,16 +89,18 @@ export interface DashboardPatient {
 }
 
 export type ViewMode =
+  | 'global'
   | 'cards'
   | 'document'
+  | 'plan'
   | 'dashboard'
   | 'labs'
   | 'meds'
-  | 'plan'
   | 'critical'
   | 'handoff'
   | 'pages'
-  | 'idr';
+  | 'idr'
+  | 'table';
 export type UIDensity = 'compact' | 'normal' | 'spacious';
 
 export interface ExtractedPlan {

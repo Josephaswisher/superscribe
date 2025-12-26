@@ -62,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.write(chunk);
       }
       res.end();
+      return;
     } else {
       const data = await geminiResponse.json();
       return res.status(200).json(data);

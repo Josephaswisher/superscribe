@@ -27,7 +27,6 @@ import {
   ChevronsDown,
   ZoomOut,
   ZoomIn,
-  Plus,
   Sparkles,
   Loader2,
   ChevronRight,
@@ -339,15 +338,6 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = () => {
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        <button
-          onClick={() => onAddPatient?.()}
-          className={`mr-3 p-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium ${isDarkMode ? 'bg-[#d97757]/10 text-[#d97757] hover:bg-[#d97757]/20' : 'bg-orange-50 text-[#d97757] hover:bg-orange-100'} `}
-          title="Add New Patient Sheet"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Add Sheet</span>
-        </button>
 
         <div className={`h-4 w-px mx-1 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'} `} />
 
